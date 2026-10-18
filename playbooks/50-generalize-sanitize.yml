@@ -1,0 +1,26 @@
+---
+- name: Generalize and sanitize build VM
+  hosts: build_vm
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Reset hostname
+      ansible.builtin.hostname:
+        name: localhost.localdomain
+
+    - name: Find primary ethernet connection
+      ansible.builtin.command: nmcli -t -f NAME,DEVICE,TYPE connection show --active
+      register: nm_connections
+      changed_when: false
+
+    - name: Set primary connection to DHCP
+      ansible.builtin.command: >
+        nmcli connection modify "{{ (nm_connections.stdout_lines | select('search', 'ethernet|802-3-ethernet') | first).split(':')[0] }}"
+        ipv4.method auto ipv4.addresses "" ipv4.gateway ""
+      changed_when: true
+
+    # Never remove /home/lab-secops/.ssh.
+    - name: Remove Ansible scratch space
+      ansible.builtin.file:
+        path: /root/.ansible
+        state: absent

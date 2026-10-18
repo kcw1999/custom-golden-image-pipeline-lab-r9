@@ -1,0 +1,15 @@
+---
+- name: Destroy ephemeral build VM
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../{{ image_profile_dir }}/profile.yml"
+  tasks:
+    - name: Destroy build VM
+      vmware.vmware.vm:
+        name: "{{ build_vm_name }}"
+        datacenter: "{{ image_profile.placement.datacenter }}"
+        folder: "{{ image_profile.placement.folder }}"
+        state: absent
+        allow_power_cycling: true

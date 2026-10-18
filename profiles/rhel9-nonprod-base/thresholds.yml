@@ -1,0 +1,21 @@
+# SAF CLI "saf validate threshold" template.
+#
+# A failed functional or compliance validation must block promotion. This
+# file is the actual compliance gate: playbooks/40-scan-and-attest.yml runs
+#   saf validate threshold -i cinc-report.json -T thresholds.yml
+# and a non-zero exit fails the scan job.
+#
+# Regenerate baseline numbers from a known-good build with:
+#   saf generate threshold -i <evidence_dir>/cinc-report.json \
+#     -o profiles/rhel9-nonprod-base/thresholds.yml
+#
+# No critical or high findings are tolerated. A small number of medium/low
+# exceptions may pass through review and should be tightened over time.
+---
+failed:
+  critical:
+    max: 0
+  high:
+    max: 0
+  total:
+    max: 10

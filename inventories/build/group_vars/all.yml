@@ -1,0 +1,17 @@
+---
+ansible_user: lab-secops
+image_profile_dir: profiles/rhel9-nonprod-base
+
+# Build network. One reserved static IP; only one build runs at a time.
+build_ip: CHANGE_ME
+build_netmask: CHANGE_ME
+build_gateway: CHANGE_ME
+build_hostname: CHANGE_ME
+build_domain: CHANGE_ME
+
+stig_appliance_host: CHANGE_ME
+
+git_sha: "{{ awx_project_revision | default('local') }}"
+pipeline_id: "{{ awx_workflow_job_id | default('local') }}"
+build_vm_name: "gibuild-rhel{{ image_profile.os.major }}-{{ pipeline_id }}"
+evidence_dir: "/home/{{ ansible_user }}/evidence/{{ pipeline_id }}"

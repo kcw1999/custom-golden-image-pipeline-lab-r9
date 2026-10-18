@@ -1,0 +1,22 @@
+---
+# RHEL 9 non-production golden image. Do not put BUILD_IP here.
+image_profile:
+  name: rhel9-nonprod-base
+  os:
+    major: 9
+  source:
+    library: SOURCE_RHEL9_CONTENT_LIBRARY
+    # VM template item. Put the version in the item name; never a floating name.
+    item: rhel9-approved-base
+  placement:
+    datacenter: DT_DATACENTER
+    datastore: DT_DATASTORE
+    folder: /DT_DATACENTER/vm/golden-image-builds
+    network: DT_BUILD_NETWORK
+    resource_pool: DT_RESOURCE_POOL
+  promotion:
+    target_library: DT_GOLDEN_IMAGE_CONTENT_LIBRARY
+
+# Components passed to the rhel9_stig role.
+stig_component:
+  - all_9

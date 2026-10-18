@@ -1,0 +1,24 @@
+---
+- name: Promote build VM to the golden image content library
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../{{ image_profile_dir }}/profile.yml"
+  tasks:
+    - name: Power off build VM before capture
+      vmware.vmware.vm_powerstate:
+        name: "{{ build_vm_name }}"
+        datacenter: "{{ image_profile.placement.datacenter }}"
+        folder: "{{ image_profile.placement.folder }}"
+        state: powered-off
+
+    # Unique per workflow run, so promotion always creates a new item.
+    - name: Publish build VM as a new content library template
+      vmware.vmware.content_template:
+        template_name: "{{ image_profile.name }}-{{ git_sha[:8] }}-{{ pipeline_id }}"
+        library: "{{ image_profile.promotion.target_library }}"
+        vm_name: "{{ build_vm_name }}"
+        vm_folder: "{{ image_profile.placement.folder }}"
+        datacenter: "{{ image_profile.placement.datacenter }}"
+        resource_pool: "{{ image_profile.placement.resource_pool }}"

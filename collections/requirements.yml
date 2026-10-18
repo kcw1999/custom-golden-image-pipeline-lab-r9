@@ -1,0 +1,7 @@
+---
+collections:
+  - name: vmware.vmware
+    version: 2.11.0
+  # Used by the STIG roles in stig/.
+  - name: community.general
+  - name: ansible.posix

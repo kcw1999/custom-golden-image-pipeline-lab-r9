@@ -1,0 +1,17 @@
+---
+- name: Harden RHEL 9 build VM
+  hosts: build_vm
+  become: true
+  vars_files:
+    - "{{ playbook_dir }}/../{{ image_profile_dir }}/profile.yml"
+  tasks:
+    - name: Assert build VM runs the profile's RHEL major version
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == 'RedHat'
+          - ansible_distribution_major_version == (image_profile.os.major | string)
+        fail_msg: Unexpected OS {{ ansible_distribution }} {{ ansible_distribution_major_version }}.
+
+    - name: Apply rhel9_stig with profile component selection
+      ansible.builtin.include_role:
+        name: rhel9_stig

@@ -1,0 +1,100 @@
+---
+- name: Scan build VM from the STIG appliance and attest
+  hosts: stig_appliance
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../{{ image_profile_dir }}/profile.yml"
+  tasks:
+    - name: Create evidence directory
+      ansible.builtin.file:
+        path: "{{ evidence_dir }}"
+        state: directory
+        mode: "0750"
+
+    - name: Copy SAF threshold template
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../{{ image_profile_dir }}/thresholds.yml"
+        dest: "{{ evidence_dir }}/thresholds.yml"
+        mode: "0640"
+
+    # The appliance has no git; the pinned cinc/ submodule is copied with each run's evidence.
+    - name: Copy CINC profile
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../cinc/"
+        dest: "{{ evidence_dir }}/cinc-profile/"
+        mode: preserve
+
+    - name: Scan build VM with CINC
+      ansible.builtin.command:
+        argv:
+          - cinc-auditor
+          - exec
+          - cinc-profile
+          - -t
+          - "ssh://{{ ansible_user }}@{{ build_ip }}"
+          - --reporter
+          - json:cinc-report.json
+          - cli
+        chdir: "{{ evidence_dir }}"
+      register: cinc_scan
+      # 100 = failed controls, 101 = skipped controls; SAF thresholds decide pass/fail.
+      failed_when: cinc_scan.rc not in [0, 100, 101]
+      changed_when: true
+
+    - name: Write SAF summary
+      ansible.builtin.command: saf view summary -i cinc-report.json -f markdown -o summary.md
+      args:
+        chdir: "{{ evidence_dir }}"
+      changed_when: true
+
+    - name: Write DISA checklist
+      ansible.builtin.command: saf convert hdf2ckl -i cinc-report.json -o rhel9.ckl
+      args:
+        chdir: "{{ evidence_dir }}"
+      changed_when: true
+
+    - name: Enforce SAF compliance threshold
+      ansible.builtin.command: saf validate threshold -i cinc-report.json -T thresholds.yml
+      args:
+        chdir: "{{ evidence_dir }}"
+      changed_when: false
+
+    - name: Read CINC version
+      ansible.builtin.command: cinc-auditor version
+      register: cinc_version
+      changed_when: false
+
+    - name: Read SAF version
+      ansible.builtin.command: saf --version
+      register: saf_version
+      changed_when: false
+
+    - name: Read CINC report
+      ansible.builtin.slurp:
+        src: "{{ evidence_dir }}/cinc-report.json"
+      register: cinc_report
+
+    # Only reached after the threshold gate passed.
+    - name: Write attestation
+      ansible.builtin.copy:
+        dest: "{{ evidence_dir }}/attestation.json"
+        mode: "0640"
+        content: "{{ attestation | to_nice_json }}"
+      vars:
+        scanned_profile: "{{ (cinc_report.content | b64decode | from_json).profiles[0] }}"
+        attestation:
+          profile: "{{ image_profile.name }}"
+          git_sha: "{{ git_sha }}"
+          pipeline_id: "{{ pipeline_id }}"
+          source: "{{ image_profile.source }}"
+          build_vm_name: "{{ build_vm_name }}"
+          stig_component: "{{ stig_component }}"
+          status: passed
+          tool_versions:
+            cinc_auditor: "{{ cinc_version.stdout }}"
+            saf: "{{ saf_version.stdout }}"
+            ansible: "{{ ansible_version.full }}"
+          compliance_profile:
+            name: "{{ scanned_profile.name | default('') }}"
+            version: "{{ scanned_profile.version | default('') }}"
+            sha256: "{{ scanned_profile.sha256 | default('') }}"

@@ -1,0 +1,58 @@
+---
+- name: Provision ephemeral build VM
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../{{ image_profile_dir }}/profile.yml"
+  tasks:
+    - name: Deploy build VM from content library template
+      vmware.vmware.deploy_content_library_template:
+        library_name: "{{ image_profile.source.library }}"
+        library_item_name: "{{ image_profile.source.item }}"
+        vm_name: "{{ build_vm_name }}"
+        datacenter: "{{ image_profile.placement.datacenter }}"
+        datastore: "{{ image_profile.placement.datastore }}"
+        vm_folder: "{{ image_profile.placement.folder }}"
+        resource_pool: "{{ image_profile.placement.resource_pool }}"
+      register: deploy
+
+    - name: Attach build network to first adapter
+      vmware.vmware.vm:
+        name: "{{ build_vm_name }}"
+        datacenter: "{{ image_profile.placement.datacenter }}"
+        folder: "{{ image_profile.placement.folder }}"
+        network_adapters:
+          - network: "{{ image_profile.placement.network }}"
+        network_adapters_remove_unmanaged: false
+
+    # The module always reports changed, so only stage it on a fresh deploy.
+    - name: Stage static IP and hostname customization
+      vmware.vmware.vm_apply_customization:
+        name: "{{ build_vm_name }}"
+        datacenter: "{{ image_profile.placement.datacenter }}"
+        folder: "{{ image_profile.placement.folder }}"
+        global_dns: {}
+        unix_prep:
+          hostname: "{{ build_hostname }}"
+          domain: "{{ build_domain }}"
+        nic_specific_settings:
+          - ipv4:
+              address: "{{ build_ip }}"
+              subnet_mask: "{{ build_netmask }}"
+              gateways:
+                - "{{ build_gateway }}"
+      when: deploy is changed
+
+    - name: Power on build VM
+      vmware.vmware.vm_powerstate:
+        name: "{{ build_vm_name }}"
+        datacenter: "{{ image_profile.placement.datacenter }}"
+        folder: "{{ image_profile.placement.folder }}"
+        state: powered-on
+
+    - name: Wait for SSH on the static build IP
+      ansible.builtin.wait_for:
+        host: "{{ build_ip }}"
+        port: 22
+        timeout: 900

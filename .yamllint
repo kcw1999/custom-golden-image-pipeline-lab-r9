@@ -1,0 +1,10 @@
+---
+extends: default
+ignore: |
+  stig/
+  cinc/
+rules:
+  line-length:
+    max: 160
+  truthy:
+    check-keys: false

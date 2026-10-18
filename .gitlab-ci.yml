@@ -1,0 +1,14 @@
+---
+# Lint only. Builds run in AAP, triggered by the webhook on pushes to main.
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+lint:
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+    - ansible-galaxy collection install -r collections/requirements.yml
+    - yamllint .
+    - ansible-lint
